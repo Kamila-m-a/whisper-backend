@@ -2,10 +2,19 @@ services:
   - type: web
     name: whisper-backend
     plan: free
-    swapSizeMB: 512
-    runtime: python
+    runtime: python  
+    swapSizeMB: 512  
+
     buildCommand: |
-      pip install numpy==1.23.5 torch==1.13.1
+      pip install numpy==1.23.5 --prefer-binary  # Critical for ARM compatibility
       pip install -r requirements.txt
-    startCommand: uvicorn main:app --host 0.0.0.0 --port 10000
-    port: 10000
+    
+
+    startCommand: |
+      ulimit -Sv 500000 
+      uvicorn main:app --host 0.0.0.0 --port 10000 --workers 1
+
+    port: 10000  
+    envVars:
+      - key: PYTORCH_ENABLE_MPS_FALLBACK
+        value: "1"

@@ -24,7 +24,7 @@ app.add_middleware(
 )
 
 # Optimized model loading for Render free tier
-model = whisper.load_model("tiny.en", device="cpu")
+model = whisper.load_model("tiny", device="cpu")
 model.eval()  # Disable dropout for inference
 torch.set_num_threads(1)  # Limit CPU threads
 

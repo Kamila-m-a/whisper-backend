@@ -4,6 +4,8 @@ services:
     plan: free
     swapSizeMB: 512
     runtime: python
-    buildCommand: pip install -r requirements.txt
+    buildCommand: |
+      pip install numpy==1.23.5 torch==1.13.1
+      pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port 10000
     port: 10000

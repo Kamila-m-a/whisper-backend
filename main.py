@@ -1,44 +1,64 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 import whisper
-import os
-import ffmpeg
-import uvicorn  
+import torch
 import numpy as np
+import os
+import warnings
 
-def load_model_safely():
-    try:
-        # Test NumPy first
-        np.array([1, 2, 3])  # Simple check to ensure NumPy works
-        return whisper.load_model("tiny") 
-    except Exception as e:
-        raise RuntimeError(f"Failed to load model: {str(e)}")
-        
+# Suppress harmless warnings
+warnings.filterwarnings("ignore", message="FP16 is not supported on CPU")
+warnings.filterwarnings("ignore", category=UserWarning, module="whisper")
+
+# Initialize NumPy explicitly (critical for Whisper)
+np.zeros(1)  # Prevents "Numpy is not available" errors
+
 app = FastAPI()
 
-model = load_model_safely()
+# Enable CORS (required for Flutter)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["POST"],
+    allow_headers=["*"],
+)
+
+# Optimized model loading for Render free tier
+model = whisper.load_model("tiny.en", device="cpu")
+model.eval()  # Disable dropout for inference
+torch.set_num_threads(1)  # Limit CPU threads
 
 @app.post("/transcribe")
-async def transcribe_audio(file: UploadFile = File(...)):
-    try :
-        temp_path = f"temp_{file.filename}"
+async def transcribe(file: UploadFile = File(...)):
+    temp_path = "temp_audio.wav"
+    try:
+        # 1. Save uploaded file
         with open(temp_path, "wb") as f:
             f.write(await file.read())
-
-        audio_path = "audio.wav"
-        ffmpeg.input(temp_path).output(audio_path, ar=16000, ac=1).run()
-    
-    
-        result = model.transcribe(audio_path)
-
+        
+        # 2. Process with memory limits
+        with torch.inference_mode():
+            result = model.transcribe(temp_path, fp16=False)  # Force FP32
+        
         return {"text": result["text"]}
-
-    finally :    
-        if os.remove(temp_path):
+    
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Transcription failed: {str(e)}"
+        )
+    finally:
+        # 3. Cleanup temp files
+        if os.path.exists(temp_path):
             os.remove(temp_path)
 
-        if os.path.exists(audio_path):
-            os.remove(audio_path)
-      
-
-if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=10000) 
+@app.get("/")
+def health_check():
+    return {
+        "status": "Ready",
+        "model": "tiny.en",
+        "endpoints": {
+            "transcribe": "POST /transcribe",
+            "docs": "GET /docs"
+        }
+    }

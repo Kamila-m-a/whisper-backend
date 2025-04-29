@@ -56,7 +56,7 @@ async def transcribe(file: UploadFile = File(...)):
 def health_check():
     return {
         "status": "Ready",
-        "model": "tiny.en",
+        "model": "tiny",
         "endpoints": {
             "transcribe": "POST /transcribe",
             "docs": "GET /docs"

@@ -2,7 +2,7 @@ from fastapi import FastAPI, UploadFile, File
 import whisper
 import os
 import ffmpeg
-
+import uvicorn  
 
 app = FastAPI()
 
@@ -25,3 +25,6 @@ async def transcribe_audio(file: UploadFile = File(...)):
     os.remove(audio_path)
     
     return {"text": result["text"]}
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=10000) 

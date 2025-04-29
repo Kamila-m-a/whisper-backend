@@ -3,10 +3,19 @@ import whisper
 import os
 import ffmpeg
 import uvicorn  
+import numpy as np
 
+def load_model_safely():
+    try:
+        # Test NumPy first
+        np.array([1, 2, 3])  # Simple check to ensure NumPy works
+        return whisper.load_model("tiny") 
+    except Exception as e:
+        raise RuntimeError(f"Failed to load model: {str(e)}")
+        
 app = FastAPI()
 
-model = whisper.load_model("tiny")  
+model = load_model_safely()
 
 @app.post("/transcribe")
 async def transcribe_audio(file: UploadFile = File(...)):

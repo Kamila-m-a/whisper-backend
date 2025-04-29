@@ -6,25 +6,30 @@ import uvicorn
 
 app = FastAPI()
 
-model = whisper.load_model("base")  
+model = whisper.load_model("tiny")  
 
 @app.post("/transcribe")
 async def transcribe_audio(file: UploadFile = File(...)):
+    try :
+        temp_path = f"temp_{file.filename}"
+        with open(temp_path, "wb") as f:
+            f.write(await file.read())
+
+        audio_path = "audio.wav"
+        ffmpeg.input(temp_path).output(audio_path, ar=16000, ac=1).run()
     
-    temp_path = f"temp_{file.filename}"
-    with open(temp_path, "wb") as f:
-        f.write(await file.read())
     
-    audio_path = "audio.wav"
-    ffmpeg.input(temp_path).output(audio_path, ar=16000, ac=1).run()
-    
-    
-    result = model.transcribe(audio_path)
-    
-    os.remove(temp_path)
-    os.remove(audio_path)
-    
-    return {"text": result["text"]}
+        result = model.transcribe(audio_path)
+
+        return {"text": result["text"]}
+
+    finally :    
+        if os.remove(temp_path):
+            os.remove(temp_path)
+
+        if os.path.exists(audio_path):
+            os.remove(audio_path)
+      
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=10000) 
